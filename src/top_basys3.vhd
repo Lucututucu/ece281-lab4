@@ -25,7 +25,14 @@ end top_basys3;
 architecture top_basys3_arch of top_basys3 is
 
     -- signal declarations
-    
+    constant k_WIDTH : natural  := 7;
+    signal w_clk : std_logic;
+    signal w_reset_clk : std_logic;
+    signal w_reset_FSM : std_logic;
+    signal w_floor_1 : std_logic_vector(3 downto 0);
+--    signal w_floor_2 : std_logic_vector(3 downto 0);
+    signal w_seg_n_1 : std_logic_vector(6 downto 0);
+--    signal w_seg_n_2 : std_logic_vector(6 downto 0);
   
 	-- component declarations
     component sevenseg_decoder is
@@ -45,18 +52,18 @@ architecture top_basys3_arch of top_basys3 is
 		 );
 	end component elevator_controller_fsm;
 	
-	component TDM4 is
-		generic ( constant k_WIDTH : natural  := 4); -- bits in input and output
-        Port ( i_clk		: in  STD_LOGIC;
-           i_reset		: in  STD_LOGIC; -- asynchronous
-           i_D3 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
-		   i_D2 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
-		   i_D1 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
-		   i_D0 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
-		   o_data		: out STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
-		   o_sel		: out STD_LOGIC_VECTOR (3 downto 0)	-- selected data line (one-cold)
-	   );
-    end component TDM4;
+--	component TDM4 is
+--		generic ( constant k_WIDTH : natural  := 7); -- bits in input and output
+--        Port ( i_clk		: in  STD_LOGIC;
+--           i_reset		: in  STD_LOGIC; -- asynchronous
+--           i_D3 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+--		   i_D2 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+--		   i_D1 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+--		   i_D0 		: in  STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+--		   o_data		: out STD_LOGIC_VECTOR (k_WIDTH - 1 downto 0);
+--		   o_sel		: out STD_LOGIC_VECTOR (3 downto 0)	-- selected data line (one-cold)
+--	   );
+--    end component TDM4;
      
 	component clock_divider is
         generic ( constant k_DIV : natural := 2	); -- How many clk cycles until slow clock toggles
@@ -70,14 +77,70 @@ architecture top_basys3_arch of top_basys3 is
 	
 begin
 	-- PORT MAPS ----------------------------------------
-    	
 	
+	elevator_1 : elevator_controller_fsm
+	   port map (
+	       i_clk => w_clk,
+           i_reset => w_reset_FSM,
+           is_stopped => sw(0),
+           go_up_down => sw(1),
+           o_floor => w_floor_1
+	);
+	
+--	elevator_2 : elevator_controller_fsm
+--	   port map (
+--	       i_clk => w_clk,
+--           i_reset => w_reset_FSM,
+--           is_stopped => sw(14),
+--           go_up_down => sw(15),
+--           o_floor => w_floor_2
+--	);
+	
+	sevenseg_1 : sevenseg_decoder
+        port map (
+            i_Hex => w_floor_1,
+            o_seg_n => seg(6 downto 0)
+    );	
+    
+--	sevenseg_2 : sevenseg_decoder
+--        port map (
+--            i_Hex => w_floor_2,
+--            o_seg_n => w_seg_n_2
+--    );
+    
+--	TDM_inst : TDM4
+--        port map (
+--           i_clk => clk,
+--           i_reset => btnU,
+--           i_D3 => "0001110",
+--           i_D2 => w_seg_n_2,
+--           i_D1 => "0001110",
+--           i_D0 => w_seg_n_1,
+--		   o_data => seg(6 downto 0),
+--		   o_sel => an(3 downto 0)
+--	   );    
+	
+	clkdiv_inst : clock_divider 		--instantiation of clock_divider to take 
+        generic map ( k_DIV => 12500000 ) -- 4 Hz clock from 100 MHz
+        port map (						  
+            i_clk   => clk,
+            i_reset => w_reset_clk,
+            o_clk   => w_clk
+     );
 	-- CONCURRENT STATEMENTS ----------------------------
 	
 	-- LED 15 gets the FSM slow clock signal. The rest are grounded.
+	led(15) <= w_clk;
 	
+	led(14 downto 0) <= (others => '0');
+	
+	an(0) <= '0';
+	an(3 downto 1) <= (others => '1');
 	-- leave unused switches UNCONNECTED. Ignore any warnings this causes.
 	
 	-- reset signals
+	w_reset_clk <= btnL or btnU;
+	w_reset_FSM <= btnR or btnU;
+	
 	
 end top_basys3_arch;
